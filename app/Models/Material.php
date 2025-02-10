@@ -9,12 +9,15 @@ class Material extends Model
 {
     use HasFactory;
     
+    // Ubah dari 'jumlah_pertanyaan' menjadi 'points'
     protected $fillable = [
         'module_id',
         'title',
         'content',
         'pdf_path',
-        'logo_path'];
+        'logo_path',
+        'points'
+    ];
 
     protected $appends = ['pdf_url', 'user_progress'];
 
@@ -27,10 +30,10 @@ class Material extends Model
     {
         return $this->belongsTo(Module::class);
     }
-
-    public function questions()
+    
+    public function challenges()
     {
-        return $this->hasMany(Question::class);
+        return $this->hasMany(Challenge::class);
     }
 
     public function getUserProgressAttribute()
@@ -40,5 +43,10 @@ class Material extends Model
         return $this->materialProgress()
             ->where('user_id', auth()->id())
             ->first();
+    }
+
+    public function materialProgress()
+    {
+        return $this->hasMany(\App\Models\MaterialProgress::class);
     }
 }

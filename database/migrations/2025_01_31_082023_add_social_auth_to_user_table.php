@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->string('nickname')->nullable()->after('name'); // Add nickname field
             $table->timestamp('nickname_updated_at')->nullable()->after('nickname'); // Track last nickname update
-            $table->string('avatar')->nullable()->after('provider_token'); // Store avatar URL
+            $table->string('avatar')->nullable(); // Store avatar URL
             $table->string('logo_path')->nullable(); // Path to the custom logo image
-            $table->unique('provider')->nullable()->after('password'); // Google, Facebook, etc.
-            $table->unique('provider_id')->nullable()->unique()->after('provider'); // User's ID from provider
-            $table->string('provider_token')->nullable()->after('provider_id'); // OAuth token from provider
+            $table->string('provider')->nullable()->unique(); // Google, Facebook, etc.
+            $table->string('provider_id')->nullable()->unique(); // User's ID from provider
+            $table->string('provider_token')->nullable(); // OAuth token from provider
         });
     }
 

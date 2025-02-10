@@ -9,11 +9,13 @@ class Question extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['material_id', 'question', 'logo_path', 'points', 'answer_id'];
+    // Ganti 'material_id' menjadi 'challenge_id'
+    protected $fillable = ['challenge_id', 'question', 'logo_path', 'points', 'answer_id'];
 
-    public function material()
+    // Relasi: Question milik Challenge
+    public function challenge()
     {
-        return $this->belongsTo(Material::class);
+        return $this->belongsTo(Challenge::class);
     }
 
     public function answers()
@@ -25,7 +27,7 @@ class Question extends Model
     {
         return $this->belongsTo(Answer::class, 'answer_id');
     }
-
+    
     public function userAnswers()
     {
         return $this->hasMany(UserAnswer::class);
