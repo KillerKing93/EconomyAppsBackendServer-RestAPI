@@ -317,7 +317,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Login secara manual.
+     * Login secara manual dengan dukungan fitur "Ingat saya" (remember me).
      */
     public function login(Request $request)
     {
@@ -325,8 +325,9 @@ class AuthController extends Controller
 
         try {
             $validated = $request->validate([
-                'email'    => 'required|email',
-                'password' => 'required',
+                'email'       => 'required|email',
+                'password'    => 'required',
+                'remember_me' => 'nullable|boolean', // Tambahkan validasi untuk remember_me
             ]);
             $this->logDebug("Data after validation (login)", $validated);
         } catch (ValidationException $e) {
@@ -351,8 +352,33 @@ class AuthController extends Controller
             'ip_address' => $request->ip()
         ]);
 
+        // Periksa apakah opsi "remember me" diaktifkan
+        $remember = $validated['remember_me'] ?? false;
+
+        // Buat token akses baru
+        $tokenResult = $user->createToken('API Token');
+
+        // Atur masa berlaku token berdasarkan opsi "remember me"
+        if ($remember) {
+            // Jika "ingat saya" aktif, atur token berlaku selama 30 hari
+            $tokenResult->token->expires_at = now()->addDays(30);
+            $this->logInfo("Remember me diaktifkan, token berlaku selama 30 hari", [
+                'user_id'    => $user->id,
+                'expires_at' => $tokenResult->token->expires_at,
+            ]);
+        } else {
+            // Jika tidak, atur token berlaku selama 1 hari (opsional)
+            $tokenResult->token->expires_at = now()->addDay();
+            $this->logInfo("Remember me tidak diaktifkan, token berlaku selama 1 hari", [
+                'user_id'    => $user->id,
+                'expires_at' => $tokenResult->token->expires_at,
+            ]);
+        }
+
+        $tokenResult->token->save();
+
         return response()->json([
-            'token' => $user->createToken('API Token')->plainTextToken
+            'token' => $tokenResult->plainTextToken
         ]);
     }
 
