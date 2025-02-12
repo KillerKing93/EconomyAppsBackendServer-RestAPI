@@ -554,4 +554,41 @@ class AuthController extends Controller
 
         return response()->json($user);
     }
+
+    /**
+ * Logout user dengan menghapus token yang digunakan saat ini.
+ */
+public function logout(Request $request)
+{
+    $user = $request->user();
+    if (!$user) {
+        $this->logWarning("Logout gagal: user tidak terautentikasi", [
+            'ip_address' => $request->ip()
+        ]);
+        return response()->json(['error' => 'Unauthenticated'], 401);
+    }
+
+    // Mengambil token yang sedang digunakan
+    $currentToken = $user->currentAccessToken();
+    if ($currentToken) {
+        $tokenId = $currentToken->id;
+        // Hapus token yang sedang digunakan
+        $currentToken->delete();
+
+        $this->logInfo("User berhasil logout dan token dihapus", [
+            'user_id'    => $user->id,
+            'token_id'   => $tokenId,
+            'ip_address' => $request->ip(),
+        ]);
+
+        return response()->json(['message' => 'Logged out successfully'], 200);
+    }
+
+    $this->logWarning("User tidak memiliki token untuk dihapus", [
+        'user_id'    => $user->id,
+        'ip_address' => $request->ip(),
+    ]);
+    return response()->json(['error' => 'No active token found'], 400);
+}
+
 }
