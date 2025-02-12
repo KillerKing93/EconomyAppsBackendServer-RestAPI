@@ -327,7 +327,7 @@ class AuthController extends Controller
             $validated = $request->validate([
                 'email'       => 'required|email',
                 'password'    => 'required',
-                'remember_me' => 'nullable|boolean', // Tambahkan validasi untuk remember_me
+                'remember_me' => 'nullable|boolean', // Validasi untuk remember_me
             ]);
             $this->logDebug("Data after validation (login)", $validated);
         } catch (ValidationException $e) {
@@ -361,21 +361,22 @@ class AuthController extends Controller
         // Atur masa berlaku token berdasarkan opsi "remember me"
         if ($remember) {
             // Jika "ingat saya" aktif, atur token berlaku selama 30 hari
-            $tokenResult->token->expires_at = now()->addDays(30);
+            $tokenResult->accessToken->expires_at = now()->addDays(30);
             $this->logInfo("Remember me diaktifkan, token berlaku selama 30 hari", [
                 'user_id'    => $user->id,
-                'expires_at' => $tokenResult->token->expires_at,
+                'expires_at' => $tokenResult->accessToken->expires_at,
             ]);
         } else {
             // Jika tidak, atur token berlaku selama 1 hari (opsional)
-            $tokenResult->token->expires_at = now()->addDay();
+            $tokenResult->accessToken->expires_at = now()->addDay();
             $this->logInfo("Remember me tidak diaktifkan, token berlaku selama 1 hari", [
                 'user_id'    => $user->id,
-                'expires_at' => $tokenResult->token->expires_at,
+                'expires_at' => $tokenResult->accessToken->expires_at,
             ]);
         }
 
-        $tokenResult->token->save();
+        // Simpan token yang telah diperbarui
+        $tokenResult->accessToken->save();
 
         return response()->json([
             'token' => $tokenResult->plainTextToken
