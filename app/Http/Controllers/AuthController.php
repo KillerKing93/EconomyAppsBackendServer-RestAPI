@@ -112,8 +112,6 @@ class AuthController extends Controller
 
     /**
      * Register pengguna secara manual.
-     * Untuk pendaftaran publik, field tambahan seperti nickname, gender, nisn, tanggal_lahir, dan foto (dikirim melalui key "photo")
-     * akan diproses, dan role akan dipaksa menjadi "user".
      */
     public function register(Request $request)
     {
@@ -149,12 +147,9 @@ class AuthController extends Controller
 
             // Gunakan data hasil validasi
             $data = $validated;
-            // Enkripsi password
             $data['password'] = Hash::make($validated['password']);
-            // Untuk pendaftaran publik, paksa role menjadi "user"
             $data['role'] = 'user';
 
-            // Proses upload foto profil jika ada (dikirim melalui key "photo")
             if ($request->hasFile('photo')) {
                 $data['logo_path'] = $request->file('photo')->store('users/logo', 'public');
                 $this->logInfo("Profile photo uploaded", ['logo_path' => $data['logo_path']]);
@@ -239,29 +234,38 @@ class AuthController extends Controller
             $validated['password'] = Hash::make($validated['password']);
         }
 
-        // Proses upload foto profil jika ada (dikirim melalui key "photo")
         if ($request->hasFile('photo')) {
-            if ($user->logo_path && Storage::disk('public')->exists($user->logo_path)) {
-                Storage::disk('public')->delete($user->logo_path);
-                $this->logInfo("Old profile photo deleted", [
+            $file = $request->file('photo');
+            $this->logDebug("Photo file received", [
+                'user_id'       => $user->id,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type'     => $file->getMimeType(),
+                'size'          => $file->getSize(),
+            ]);
+
+            if ($file->isValid()) {
+                if ($user->logo_path && Storage::disk('public')->exists($user->logo_path)) {
+                    Storage::disk('public')->delete($user->logo_path);
+                    $this->logInfo("Old profile photo deleted", [
+                        'user_id'       => $user->id,
+                        'old_logo_path' => $user->logo_path,
+                    ]);
+                } else {
+                    $this->logInfo("No old profile photo found", ['user_id' => $user->id]);
+                }
+                $path = $file->store('users/logo', 'public');
+                $validated['logo_path'] = $path;
+                $this->logInfo("New profile photo uploaded", [
                     'user_id'       => $user->id,
-                    'old_logo_path' => $user->logo_path,
+                    'new_logo_path' => $path,
                 ]);
             } else {
-                $this->logInfo("No old profile photo found", ['user_id' => $user->id]);
+                $this->logWarning("Uploaded photo file is not valid", ['user_id' => $user->id]);
             }
-            $path = $request->file('photo')->store('users/logo', 'public');
-            // Simpan path foto ke field database yang sama (misalnya, logo_path)
-            $validated['logo_path'] = $path;
-            $this->logInfo("New profile photo uploaded", [
-                'user_id'       => $user->id,
-                'new_logo_path' => $path,
-            ]);
         } else {
             $this->logInfo("No profile photo uploaded", ['user_id' => $user->id]);
         }
 
-        // Bila pengguna adalah admin dan ingin mengubah role, perbolehkan
         if ($user->role === 'admin' && isset($validated['role'])) {
             $oldRole = $user->role;
             $user->role = $validated['role'];
@@ -327,7 +331,7 @@ class AuthController extends Controller
             $validated = $request->validate([
                 'email'       => 'required|email',
                 'password'    => 'required',
-                'remember_me' => 'nullable|boolean', // Validasi untuk remember_me
+                'remember_me' => 'nullable|boolean',
             ]);
             $this->logDebug("Data after validation (login)", $validated);
         } catch (ValidationException $e) {
@@ -352,22 +356,17 @@ class AuthController extends Controller
             'ip_address' => $request->ip()
         ]);
 
-        // Periksa apakah opsi "remember me" diaktifkan
         $remember = $validated['remember_me'] ?? false;
 
-        // Buat token akses baru
         $tokenResult = $user->createToken('API Token');
 
-        // Atur masa berlaku token berdasarkan opsi "remember me"
         if ($remember) {
-            // Jika "ingat saya" aktif, atur token berlaku selama 30 hari
             $tokenResult->accessToken->expires_at = now()->addDays(30);
             $this->logInfo("Remember me diaktifkan, token berlaku selama 30 hari", [
                 'user_id'    => $user->id,
                 'expires_at' => $tokenResult->accessToken->expires_at,
             ]);
         } else {
-            // Jika tidak, atur token berlaku selama 1 hari (opsional)
             $tokenResult->accessToken->expires_at = now()->addDay();
             $this->logInfo("Remember me tidak diaktifkan, token berlaku selama 1 hari", [
                 'user_id'    => $user->id,
@@ -375,7 +374,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // Simpan token yang telah diperbarui
         $tokenResult->accessToken->save();
 
         return response()->json([
@@ -394,21 +392,37 @@ class AuthController extends Controller
 
     public function handleProviderCallback($provider)
     {
-        // Periksa apakah parameter 'code' ada di query string
+        $this->logDebug("handleProviderCallback called", [
+            'provider' => $provider,
+            'query'    => request()->all()
+        ]);
+
         if (!request()->has('code')) {
             $this->logError("Social provider callback error", [
                 'provider' => $provider,
-                'error'    => 'Missing required parameter: code'
+                'error'    => 'Missing required parameter: code',
+                'query'    => request()->all()
             ]);
             return response()->json(['error' => 'Missing required parameter: code'], 400);
         }
     
         try {
             $socialUser = Socialite::driver($provider)->stateless()->user();
+            $this->logDebug("Social user retrieved", [
+                'provider'  => $provider,
+                'socialUser'=> [
+                    'id'    => $socialUser->getId(),
+                    'name'  => $socialUser->getName(),
+                    'email' => $socialUser->getEmail(),
+                    'avatar'=> $socialUser->getAvatar()
+                ]
+            ]);
         } catch (\Exception $e) {
             $this->logError("Social provider callback error", [
                 'provider' => $provider,
-                'error'    => $e->getMessage()
+                'error'    => $e->getMessage(),
+                'trace'    => $e->getTraceAsString(),
+                'query'    => request()->all()
             ]);
             return response()->json(['error' => 'Invalid credentials provided'], 422);
         }
@@ -468,7 +482,6 @@ class AuthController extends Controller
         ]);
     }
     
-
     /**
      * Update profile (termasuk foto profil, nisn, tanggal_lahir, gender, dan nickname) dengan logging detil.
      */
@@ -476,7 +489,6 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        // Log awal update profil dan data sebelum validasi
         $this->logInfo("Starting profile update", [
             'user_id'    => $user->id,
             'ip_address' => $request->ip(),
@@ -484,7 +496,6 @@ class AuthController extends Controller
         ]);
         $this->logDebug("Data before validation (updateProfile)", $request->except(['password', 'current_password']));
 
-        // Aturan validasi
         $rules = [
             'name'             => 'sometimes|string|max:255',
             'nickname'         => 'sometimes|string|max:255|unique:users,nickname,' . $user->id,
@@ -513,7 +524,6 @@ class AuthController extends Controller
             throw $ex;
         }
 
-        // Update password jika diperlukan
         if ($request->has('password') && !empty($validated['password'])) {
             if (!Hash::check($validated['current_password'], $user->password)) {
                 $this->logWarning("Update profile failed: incorrect current password", ['user_id' => $user->id]);
@@ -525,7 +535,6 @@ class AuthController extends Controller
             $this->logInfo("Password updated", ['user_id' => $user->id]);
         }
 
-        // Proses upload foto profil jika ada (dikirim melalui key "photo")
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
             $this->logDebug("Photo file received", [
@@ -546,7 +555,6 @@ class AuthController extends Controller
                     $this->logInfo("No old profile photo found", ['user_id' => $user->id]);
                 }
                 $path = $file->store('users/logo', 'public');
-                // Simpan path foto ke field database (misalnya, logo_path)
                 $validated['logo_path'] = $path;
                 $this->logInfo("New profile photo uploaded", [
                     'user_id'       => $user->id,
@@ -593,39 +601,36 @@ class AuthController extends Controller
     }
 
     /**
- * Logout user dengan menghapus token yang digunakan saat ini.
- */
-public function logout(Request $request)
-{
-    $user = $request->user();
-    if (!$user) {
-        $this->logWarning("Logout gagal: user tidak terautentikasi", [
-            'ip_address' => $request->ip()
-        ]);
-        return response()->json(['error' => 'Unauthenticated'], 401);
-    }
+     * Logout user dengan menghapus token yang digunakan saat ini.
+     */
+    public function logout(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            $this->logWarning("Logout gagal: user tidak terautentikasi", [
+                'ip_address' => $request->ip()
+            ]);
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
 
-    // Mengambil token yang sedang digunakan
-    $currentToken = $user->currentAccessToken();
-    if ($currentToken) {
-        $tokenId = $currentToken->id;
-        // Hapus token yang sedang digunakan
-        $currentToken->delete();
+        $currentToken = $user->currentAccessToken();
+        if ($currentToken) {
+            $tokenId = $currentToken->id;
+            $currentToken->delete();
 
-        $this->logInfo("User berhasil logout dan token dihapus", [
+            $this->logInfo("User berhasil logout dan token dihapus", [
+                'user_id'    => $user->id,
+                'token_id'   => $tokenId,
+                'ip_address' => $request->ip(),
+            ]);
+
+            return response()->json(['message' => 'Logged out successfully'], 200);
+        }
+
+        $this->logWarning("User tidak memiliki token untuk dihapus", [
             'user_id'    => $user->id,
-            'token_id'   => $tokenId,
             'ip_address' => $request->ip(),
         ]);
-
-        return response()->json(['message' => 'Logged out successfully'], 200);
+        return response()->json(['error' => 'No active token found'], 400);
     }
-
-    $this->logWarning("User tidak memiliki token untuk dihapus", [
-        'user_id'    => $user->id,
-        'ip_address' => $request->ip(),
-    ]);
-    return response()->json(['error' => 'No active token found'], 400);
-}
-
 }
