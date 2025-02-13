@@ -394,6 +394,15 @@ class AuthController extends Controller
 
     public function handleProviderCallback($provider)
     {
+        // Periksa apakah parameter 'code' ada di query string
+        if (!request()->has('code')) {
+            $this->logError("Social provider callback error", [
+                'provider' => $provider,
+                'error'    => 'Missing required parameter: code'
+            ]);
+            return response()->json(['error' => 'Missing required parameter: code'], 400);
+        }
+    
         try {
             $socialUser = Socialite::driver($provider)->stateless()->user();
         } catch (\Exception $e) {
@@ -403,7 +412,7 @@ class AuthController extends Controller
             ]);
             return response()->json(['error' => 'Invalid credentials provided'], 422);
         }
-
+    
         if ($currentUser = auth()->user()) {
             $currentUser->update([
                 'provider'    => $provider,
@@ -419,11 +428,11 @@ class AuthController extends Controller
                 'user'    => $currentUser
             ]);
         }
-
+    
         $user = User::where('provider', $provider)
                     ->where('provider_id', $socialUser->getId())
                     ->first();
-
+    
         if (!$user) {
             if (User::where('email', $socialUser->getEmail())->exists()) {
                 $this->logWarning("Attempt to register social user with already registered email", [
@@ -433,7 +442,7 @@ class AuthController extends Controller
                     'email' => 'This email is already registered with another method'
                 ]);
             }
-
+    
             $user = User::create([
                 'name'        => $socialUser->getName(),
                 'email'       => $socialUser->getEmail(),
@@ -442,7 +451,7 @@ class AuthController extends Controller
                 'avatar'      => $socialUser->getAvatar(),
                 'password'    => Hash::make(Str::random(24)),
             ]);
-
+    
             $this->logInfo("New social user registered", [
                 'user_id'  => $user->id,
                 'provider' => $provider
@@ -453,11 +462,12 @@ class AuthController extends Controller
                 'provider' => $provider
             ]);
         }
-
+    
         return response()->json([
             'token' => $user->createToken('API Token')->plainTextToken
         ]);
     }
+    
 
     /**
      * Update profile (termasuk foto profil, nisn, tanggal_lahir, gender, dan nickname) dengan logging detil.
