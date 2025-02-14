@@ -182,6 +182,21 @@ class AuthController extends Controller
      */
     public function store(Request $request)
     {
+        // Pastikan bahwa hanya admin yang dapat menetapkan role admin
+        // Ambil data user terotentikasi dari Sanctum
+        $user = auth('sanctum')->user();
+        if ($user->role !== 'admin') {
+            $this->logWarning("Unauthorized role assignment attempt", [
+                'user_id' => $user->id,
+                'attempted_role' => $request->input('role')
+            ]);
+    
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You are not authorized to assign roles'
+            ], 403);
+        }
+    
         // Log data sebelum validasi
         $this->logDebug("Data before validation (store)", $request->except(['password', 'password_confirmation']));
     
