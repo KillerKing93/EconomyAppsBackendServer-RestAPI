@@ -110,14 +110,11 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * Register pengguna secara manual.
-     */
     public function register(Request $request)
     {
         // Log data sebelum validasi (hindari mencatat password)
         $this->logDebug("Data before validation (register)", $request->except(['password', 'password_confirmation']));
-
+    
         try {
             $validated = $request->validate([
                 'name'          => 'required|string|max:255',
@@ -131,6 +128,9 @@ class AuthController extends Controller
                 'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
             ]);
             $this->logDebug("Data after validation (register)", $validated);
+    
+            // Tambahkan logging untuk memeriksa gender setelah validasi
+            $this->logDebug("Gender value after validation", ['gender' => $validated['gender'] ?? 'not provided']);
         } catch (ValidationException $e) {
             $this->logError("Validation error in register", [
                 'errors' => $e->errors(),
@@ -138,26 +138,35 @@ class AuthController extends Controller
             ]);
             throw $e;
         }
-
+    
         try {
             $this->logInfo("Register user called", [
                 'request_data' => $validated,
                 'ip_address'   => $request->ip()
             ]);
-
+    
             // Gunakan data hasil validasi
             $data = $validated;
             $data['password'] = Hash::make($validated['password']);
             $data['role'] = 'user';
-
+    
+            // Tambahkan kondisi khusus untuk gender jika dibutuhkan
+            if (!isset($validated['gender'])) {
+                $this->logWarning("Gender not provided, defaulting to null");
+                $data['gender'] = null; // atau tetapkan default value
+            }
+    
+            // Proses foto jika ada
             if ($request->hasFile('photo')) {
                 $data['logo_path'] = $request->file('photo')->store('users/logo', 'public');
                 $this->logInfo("Profile photo uploaded", ['logo_path' => $data['logo_path']]);
             }
-
+    
+            // Buat pengguna baru
             $user = User::create($data);
             $this->logInfo("User registered", ['user_id' => $user->id, 'email' => $user->email]);
-
+    
+            // Berikan token autentikasi
             return response()->json([
                 'token' => $user->createToken('API Token')->plainTextToken
             ]);
@@ -166,14 +175,98 @@ class AuthController extends Controller
             return response()->json(['error' => 'Registration failed'], 500);
         }
     }
+    
 
     /**
      * Metode store() untuk mendukung resource route.
      */
     public function store(Request $request)
     {
-        return $this->register($request);
+        // Pastikan bahwa hanya admin yang dapat menetapkan role admin
+        $user = $request->user();
+        if ($user->role !== 'admin') {
+            $this->logWarning("Unauthorized role assignment attempt", [
+                'user_id' => $user->id,
+                'attempted_role' => $request->input('role')
+            ]);
+    
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'You are not authorized to assign roles'
+            ], 403);
+        }
+    
+        // Log data sebelum validasi
+        $this->logDebug("Data before validation (store)", $request->except(['password', 'password_confirmation']));
+    
+        try {
+            // Validasi dengan tambahan role (untuk admin)
+            $validated = $request->validate([
+                'name'          => 'required|string|max:255',
+                'nickname'      => 'nullable|string|max:255',
+                'email'         => 'required|email|unique:users',
+                'password'      => 'required|string|min:6|confirmed',
+                'nisn'          => 'nullable|string',
+                'tanggal_lahir' => 'nullable|date',
+                'gender'        => 'nullable|string|in:Laki - Laki,Perempuan',
+                'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'role'          => 'nullable|string|in:admin,user', // Hanya admin yang bisa menetapkan role
+            ]);
+            $this->logDebug("Data after validation (store)", $validated);
+    
+            // Tambahkan logging untuk memeriksa gender dan role setelah validasi
+            $this->logDebug("Gender value after validation", ['gender' => $validated['gender'] ?? 'not provided']);
+            $this->logDebug("Role value after validation", ['role' => $validated['role'] ?? 'user']);
+        } catch (ValidationException $e) {
+            $this->logError("Validation error in store", [
+                'errors' => $e->errors(),
+                'data'   => $request->except(['password', 'password_confirmation']),
+            ]);
+            throw $e;
+        }
+    
+        try {
+            $this->logInfo("Store user called", [
+                'request_data' => $validated,
+                'ip_address'   => $request->ip()
+            ]);
+    
+            // Gunakan data hasil validasi
+            $data = $validated;
+            $data['password'] = Hash::make($validated['password']);
+            
+            // Jika admin menetapkan role, gunakan role tersebut, jika tidak, default ke 'user'
+            if (isset($validated['role']) && $user->role === 'admin') {
+                $data['role'] = $validated['role'];
+            } else {
+                $data['role'] = 'user'; // Default role jika bukan admin
+            }
+    
+            // Proses foto jika ada
+            if ($request->hasFile('photo')) {
+                $data['logo_path'] = $request->file('photo')->store('users/logo', 'public');
+                $this->logInfo("Profile photo uploaded", ['logo_path' => $data['logo_path']]);
+            }
+    
+            // Buat pengguna baru
+            $newUser = User::create($data);
+            $this->logInfo("User registered by admin", [
+                'new_user_id' => $newUser->id,
+                'email'       => $newUser->email,
+                'created_by'  => $user->id
+            ]);
+    
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'User successfully created',
+                'user'    => $newUser
+            ]);
+        } catch (\Exception $e) {
+            $this->logError("Error registering user", ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Registration failed'], 500);
+        }
     }
+    
 
     /**
      * Menampilkan detail satu pengguna.
