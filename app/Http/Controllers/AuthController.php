@@ -488,14 +488,14 @@ class AuthController extends Controller
     public function updateProfile(Request $request)
     {
         $user = $request->user();
-
+    
         $this->logInfo("Starting profile update", [
             'user_id'    => $user->id,
             'ip_address' => $request->ip(),
             'user_agent' => $request->header('User-Agent'),
         ]);
         $this->logDebug("Data before validation (updateProfile)", $request->except(['password', 'current_password']));
-
+    
         $rules = [
             'name'             => 'sometimes|string|max:255',
             'nickname'         => 'sometimes|string|max:255|unique:users,nickname,' . $user->id,
@@ -504,15 +504,15 @@ class AuthController extends Controller
             'password'         => 'sometimes|confirmed|min:6',
             'nisn'             => 'nullable|string',
             'tanggal_lahir'    => 'nullable|date',
-            'gender'           => 'nullable|string|in:Laki - Laki,Perempuan',
+            'gender'           => 'nullable|string|in:Laki - Laki,Perempuan',  // validasi gender
             'photo'            => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
         ];
-
+    
         if ($user->role === 'admin') {
             $rules['role'] = 'sometimes|required|in:admin,user';
         }
         $this->logDebug("Validation rules (updateProfile)", $rules);
-
+    
         try {
             $validated = $request->validate($rules);
             $this->logDebug("Data after validation (updateProfile)", $validated);
@@ -523,7 +523,16 @@ class AuthController extends Controller
             ]);
             throw $ex;
         }
-
+    
+        // Tambahkan log untuk memeriksa apakah gender sudah ada di dalam $validated
+        if (isset($validated['gender'])) {
+            $this->logInfo("Gender detected in validated data", [
+                'user_id' => $user->id,
+                'gender' => $validated['gender']
+            ]);
+        }
+    
+        // Pembaruan password
         if ($request->has('password') && !empty($validated['password'])) {
             if (!Hash::check($validated['current_password'], $user->password)) {
                 $this->logWarning("Update profile failed: incorrect current password", ['user_id' => $user->id]);
@@ -534,7 +543,8 @@ class AuthController extends Controller
             $validated['password'] = Hash::make($validated['password']);
             $this->logInfo("Password updated", ['user_id' => $user->id]);
         }
-
+    
+        // Pembaruan foto profil
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
             $this->logDebug("Photo file received", [
@@ -543,7 +553,7 @@ class AuthController extends Controller
                 'mime_type'     => $file->getMimeType(),
                 'size'          => $file->getSize(),
             ]);
-
+    
             if ($file->isValid()) {
                 if ($user->logo_path && Storage::disk('public')->exists($user->logo_path)) {
                     Storage::disk('public')->delete($user->logo_path);
@@ -566,7 +576,8 @@ class AuthController extends Controller
         } else {
             $this->logInfo("No profile photo uploaded", ['user_id' => $user->id]);
         }
-
+    
+        // Pembaruan peran jika admin
         if ($user->role === 'admin' && isset($validated['role'])) {
             $oldRole = $user->role;
             $user->role = $validated['role'];
@@ -576,13 +587,14 @@ class AuthController extends Controller
                 'new_role' => $validated['role'],
             ]);
         }
-
+    
+        // Log data yang akan di-update
         $this->logInfo("Attempting to update profile fields", [
             'user_id'         => $user->id,
             'fields_attempted'=> array_keys($validated),
             'validated_data'  => $validated,
         ]);
-
+    
         $originalData = $user->toArray();
         $user->update($validated);
         $changedFields = $user->getChanges();
@@ -596,9 +608,9 @@ class AuthController extends Controller
                 'changed_fields'=> $changedFields,
             ]);
         }
-
+    
         return response()->json($user);
-    }
+    }    
 
     /**
      * Logout user dengan menghapus token yang digunakan saat ini.
