@@ -207,9 +207,9 @@ class AuthController extends Controller
                 'message' => 'User not found'
             ], 404);
         }
-
+    
         $this->logDebug("Data before validation (update)", $request->all());
-
+    
         try {
             $validated = $request->validate([
                 'name'          => 'sometimes|required|string|max:255',
@@ -217,7 +217,8 @@ class AuthController extends Controller
                 'email'         => ['sometimes', 'required', 'email', \Illuminate\Validation\Rule::unique('users')->ignore($user->id)],
                 'nisn'          => 'nullable|string',
                 'tanggal_lahir' => 'nullable|date',
-                'gender'        => 'nullable|string|in:Laki - Laki,Perempuan',
+                'gender'        => 'nullable|string|in:Laki - Laki,Perempuan',  // validasi gender sudah ada
+                'role'          => 'sometimes|required|in:admin,user',         // validasi role ditambahkan
                 'password'      => 'sometimes|confirmed|min:6',
                 'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
             ]);
@@ -229,11 +230,13 @@ class AuthController extends Controller
             ]);
             throw $e;
         }
-
+    
+        // Periksa dan enkripsi password jika ada
         if ($request->has('password') && !empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         }
-
+    
+        // Proses foto jika ada
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
             $this->logDebug("Photo file received", [
@@ -242,7 +245,7 @@ class AuthController extends Controller
                 'mime_type'     => $file->getMimeType(),
                 'size'          => $file->getSize(),
             ]);
-
+    
             if ($file->isValid()) {
                 if ($user->logo_path && Storage::disk('public')->exists($user->logo_path)) {
                     Storage::disk('public')->delete($user->logo_path);
@@ -265,8 +268,9 @@ class AuthController extends Controller
         } else {
             $this->logInfo("No profile photo uploaded", ['user_id' => $user->id]);
         }
-
-        if ($user->role === 'admin' && isset($validated['role'])) {
+    
+        // Pembaruan role tanpa memeriksa apakah user adalah admin
+        if (isset($validated['role'])) {
             $oldRole = $user->role;
             $user->role = $validated['role'];
             $this->logInfo("User role updated", [
@@ -275,13 +279,14 @@ class AuthController extends Controller
                 'new_role' => $validated['role'],
             ]);
         }
-
+    
+        // Log proses update
         $this->logInfo("Attempting to update profile fields", [
             'user_id'         => $user->id,
             'fields_attempted'=> array_keys($validated),
             'validated_data'  => $validated,
         ]);
-
+    
         $originalData = $user->toArray();
         $user->update($validated);
         $changedFields = $user->getChanges();
@@ -295,10 +300,10 @@ class AuthController extends Controller
                 'changed_fields'=> $changedFields,
             ]);
         }
-
+    
         return response()->json($user);
     }
-
+    
     /**
      * Menghapus pengguna.
      */
