@@ -54,7 +54,7 @@ class AnswerController extends Controller
             $validated = $request->validate([
                 'question_id' => 'required|exists:questions,id',
                 'answer'      => 'required|string',
-                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             ]);
 
             $logoPath = null;
@@ -102,7 +102,7 @@ class AnswerController extends Controller
             $validated = $request->validate([
                 'question_id' => 'required|exists:questions,id',
                 'answer'      => 'required|string',
-                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             ]);
 
             $updateData = [

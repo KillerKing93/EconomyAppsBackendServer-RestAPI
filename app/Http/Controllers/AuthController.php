@@ -125,7 +125,7 @@ class AuthController extends Controller
                 'nisn'          => 'nullable|string',
                 'tanggal_lahir' => 'nullable|date',
                 'gender'        => 'nullable|string|in:Laki - Laki,Perempuan',
-                'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             ]);
             $this->logDebug("Data after validation (register)", $validated);
     
@@ -210,7 +210,7 @@ class AuthController extends Controller
                 'nisn'          => 'nullable|string',
                 'tanggal_lahir' => 'nullable|date',
                 'gender'        => 'nullable|string|in:Laki - Laki,Perempuan',
-                'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
                 'role'          => 'nullable|string|in:admin,user', // Hanya admin yang bisa menetapkan role
             ]);
             $this->logDebug("Data after validation (store)", $validated);
@@ -267,26 +267,6 @@ class AuthController extends Controller
             return response()->json(['error' => 'Registration failed'], 500);
         }
     }
-    
-
-    /**
-     * Menampilkan detail satu pengguna.
-     */
-    public function show($id)
-    {
-        $user = User::find($id);
-        if (!$user) {
-            $this->logWarning("User not found", ['user_id' => $id]);
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'User not found'
-            ], 404);
-        }
-        return response()->json([
-            'status' => 'success',
-            'data'   => $user,
-        ], 200);
-    }
 
     /**
      * Memperbarui data pengguna (update untuk resource route).
@@ -314,7 +294,7 @@ class AuthController extends Controller
                 'gender'        => 'nullable|string|in:Laki - Laki,Perempuan',  // validasi gender sudah ada
                 'role'          => 'sometimes|required|in:admin,user',         // validasi role ditambahkan
                 'password'      => 'sometimes|confirmed|min:6',
-                'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'photo'         => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             ]);
             $this->logDebug("Data after validation (update)", $validated);
         } catch (ValidationException $e) {
@@ -396,6 +376,25 @@ class AuthController extends Controller
         }
     
         return response()->json($user);
+    }
+
+    /**
+     * Menampilkan detail satu pengguna.
+     */
+    public function show($id)
+    {
+        $user = User::find($id);
+        if (!$user) {
+            $this->logWarning("User not found", ['user_id' => $id]);
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'User not found'
+            ], 404);
+        }
+        return response()->json([
+            'status' => 'success',
+            'data'   => $user,
+        ], 200);
     }
     
     /**
@@ -604,7 +603,7 @@ class AuthController extends Controller
             'nisn'             => 'nullable|string',
             'tanggal_lahir'    => 'nullable|date',
             'gender'           => 'nullable|string|in:Laki - Laki,Perempuan',  // validasi gender
-            'photo'            => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+            'photo'            => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
         ];
     
         if ($user->role === 'admin') {

@@ -118,7 +118,7 @@ class ChallengeController extends Controller
                 'material_id'       => 'required|exists:materials,id',
                 'title'             => 'required|string|max:255',
                 'content'           => 'nullable|string',
-                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
                 'jumlah_pertanyaan' => 'nullable|integer|min:0',
             ]);
             Log::info('Validation passed', ['validated_data' => $validated]);
@@ -170,7 +170,7 @@ class ChallengeController extends Controller
                 'material_id'       => 'nullable|exists:materials,id',
                 'title'             => 'required|string|max:255',
                 'content'           => 'nullable|string',
-                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
                 'jumlah_pertanyaan' => 'nullable|integer|min:0',
             ]);
             Log::info('Validation passed for update', ['validated_data' => $validated]);

@@ -119,8 +119,8 @@ class MaterialController extends Controller
                 'module_id'         => 'required|exists:modules,id',
                 'title'             => 'required|string|max:255',
                 'content'           => 'nullable|string',
-                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
-                'pdf_file'          => 'required|file|mimes:pdf|max:2048',
+                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
+                'pdf_file'          => 'required|file|mimes:pdf|max:8192',
                 'points'    => 'nullable|integer|min:0',
             ]);
             Log::info('Validation passed', ['validated_data' => $validated]);
@@ -187,8 +187,8 @@ class MaterialController extends Controller
                 'module_id'         => 'nullable|exists:modules,id', // module_id tidak wajib
                 'title'             => 'required|string|max:255',
                 'content'           => 'nullable|string',
-                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
-                'pdf_file'          => 'nullable|file|mimes:pdf|max:2048',
+                'logo_path'         => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
+                'pdf_file'          => 'nullable|file|mimes:pdf|max:8192',
                 'points'    => 'nullable|integer|min:0',
             ]);
             Log::info('Validation passed for update', ['validated_data' => $validated]);

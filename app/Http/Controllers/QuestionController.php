@@ -195,7 +195,7 @@ class QuestionController extends Controller
         $validated = $request->validate([
             'challenge_id' => 'required|exists:challenges,id',
             'question'     => 'required|string',
-            'logo_path'    => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+            'logo_path'    => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             'points'       => 'required|integer|min:1',
             'answer_id'    => [
                 'nullable',
@@ -280,7 +280,7 @@ class QuestionController extends Controller
         $validated = $request->validate([
             'challenge_id' => 'required|exists:challenges,id',
             'question'     => 'required|string',
-            'logo_path'    => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+            'logo_path'    => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             'points'       => 'required|integer|min:1',
             'answer_id'    => 'nullable|exists:answers,id',
         ]);

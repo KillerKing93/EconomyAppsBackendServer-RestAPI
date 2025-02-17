@@ -93,7 +93,7 @@ class ModuleController extends Controller
             $validated = $request->validate([
                 'title'       => 'required|string|max:255',
                 'description' => 'nullable|string',
-                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             ]);
             Log::info('Module data validated', ['validated_data' => $validated]);
 
@@ -147,7 +147,7 @@ class ModuleController extends Controller
             $validated = $request->validate([
                 'title'       => 'required|string|max:255',
                 'description' => 'nullable|string',
-                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:2048',
+                'logo_path'   => 'nullable|file|mimes:jpeg,jpg,png|max:8192',
             ]);
             Log::info('Module update data validated', ['validated_data' => $validated]);
 
